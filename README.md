@@ -1,7 +1,7 @@
 <!-- Warning: Do not manually edit this file. See notes on gluon + helm-docs at the end of this file for more information. -->
 # mattermost
 
-![Version: 11.3.0-bb.2](https://img.shields.io/badge/Version-11.3.0--bb.2-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 11.3.0](https://img.shields.io/badge/AppVersion-11.3.0-informational?style=flat-square) ![Maintenance Track: bb_integrated](https://img.shields.io/badge/Maintenance_Track-bb_integrated-green?style=flat-square)
+![Version: 11.3.0-bb.3](https://img.shields.io/badge/Version-11.3.0--bb.3-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 11.3.0](https://img.shields.io/badge/AppVersion-11.3.0-informational?style=flat-square) ![Maintenance Track: bb_integrated](https://img.shields.io/badge/Maintenance_Track-bb_integrated-green?style=flat-square)
 
 Deployment of mattermost
 
@@ -48,43 +48,42 @@ helm install mattermost chart/
 |-----|------|---------|-------------|
 | domain | string | `"bigbang.dev"` |  |
 | istio.enabled | bool | `false` | Toggle istio integration |
-| istio.hardened.enabled | bool | `false` |  |
-| istio.hardened.customAuthorizationPolicies | list | `[]` |  |
-| istio.hardened.outboundTrafficPolicyMode | string | `"REGISTRY_ONLY"` |  |
-| istio.hardened.customServiceEntries | list | `[]` |  |
-| istio.hardened.clusterAuditor.enabled | bool | `false` |  |
-| istio.hardened.clusterAuditor.namespace | string | `"cluster-auditor"` |  |
-| istio.hardened.minioOperator.enabled | bool | `true` |  |
-| istio.hardened.minioOperator.namespaces[0] | string | `"minio-operator"` |  |
-| istio.hardened.minioOperator.principals[0] | string | `"cluster.local/ns/minio-operator/sa/minio-operator"` |  |
-| istio.hardened.monitoring.enabled | bool | `true` |  |
-| istio.hardened.monitoring.namespaces[0] | string | `"monitoring"` |  |
-| istio.hardened.monitoring.principals[0] | string | `"cluster.local/ns/monitoring/sa/monitoring-grafana"` |  |
-| istio.hardened.monitoring.principals[1] | string | `"cluster.local/ns/monitoring/sa/monitoring-monitoring-kube-alertmanager"` |  |
-| istio.hardened.monitoring.principals[2] | string | `"cluster.local/ns/monitoring/sa/monitoring-monitoring-kube-operator"` |  |
-| istio.hardened.monitoring.principals[3] | string | `"cluster.local/ns/monitoring/sa/monitoring-monitoring-kube-prometheus"` |  |
-| istio.hardened.monitoring.principals[4] | string | `"cluster.local/ns/monitoring/sa/monitoring-monitoring-kube-state-metrics"` |  |
-| istio.hardened.monitoring.principals[5] | string | `"cluster.local/ns/monitoring/sa/monitoring-monitoring-prometheus-node-exporter"` |  |
-| istio.hardened.kyvernoReporter.enabled | bool | `false` |  |
-| istio.hardened.kyvernoReporter.namespace | string | `"kyverno-reporter"` |  |
-| istio.mtls | object | `{"mode":"STRICT"}` | Default peer authentication |
+| istio.injection | string | `"disabled"` | Istio sidecar injection mode (enabled, disabled, or empty for no label) |
+| istio.mtls | object | `{"mode":"STRICT"}` | Mutual TLS configuration |
 | istio.mtls.mode | string | `"STRICT"` | STRICT = Allow only mutual TLS traffic, PERMISSIVE = Allow both plain text and mutual TLS traffic |
-| istio.chat.enabled | bool | `true` |  |
-| istio.chat.annotations | object | `{}` |  |
-| istio.chat.labels | object | `{}` |  |
-| istio.chat.gateways[0] | string | `"istio-system/main"` |  |
-| istio.chat.hosts[0] | string | `"chat.{{ .Values.domain }}"` |  |
-| istio.injection | string | `"disabled"` |  |
+| istio.sidecar | object | `{"enabled":true,"outboundTrafficPolicyMode":"REGISTRY_ONLY"}` | Sidecar configuration for Istio |
+| istio.sidecar.enabled | bool | `true` | Enable/disable Istio Sidecar resource (restricts outbound traffic) |
+| istio.sidecar.outboundTrafficPolicyMode | string | `"REGISTRY_ONLY"` | Outbound traffic policy mode (REGISTRY_ONLY or ALLOW_ANY) |
+| istio.serviceEntries | object | `{"custom":[{"enabled":true,"name":"mattermost-external","spec":{"exportTo":["."],"hosts":["securityupdatecheck.mattermost.com","customers.mattermost.com","notices.mattermost.com","api.integrations.mattermost.com","pdat.matterlytics.com","api.github.com"],"location":"MESH_EXTERNAL","ports":[{"name":"https","number":443,"protocol":"TLS"}]}}]}` | Service Entries Configuration |
+| istio.serviceEntries.custom | list | `[{"enabled":true,"name":"mattermost-external","spec":{"exportTo":["."],"hosts":["securityupdatecheck.mattermost.com","customers.mattermost.com","notices.mattermost.com","api.integrations.mattermost.com","pdat.matterlytics.com","api.github.com"],"location":"MESH_EXTERNAL","ports":[{"name":"https","number":443,"protocol":"TLS"}]}}]` | List of custom Istio ServiceEntry resources |
+| istio.serviceEntries.custom[0] | object | `{"enabled":true,"name":"mattermost-external","spec":{"exportTo":["."],"hosts":["securityupdatecheck.mattermost.com","customers.mattermost.com","notices.mattermost.com","api.integrations.mattermost.com","pdat.matterlytics.com","api.github.com"],"location":"MESH_EXTERNAL","ports":[{"name":"https","number":443,"protocol":"TLS"}]}}` | Mattermost external services (update checks, notices, integrations, analytics) |
+| istio.authorizationPolicies | object | `{"additionalPolicies":{"minio-operator-policy":{"enabled":true,"spec":{"action":"ALLOW","rules":[{"from":[{"source":{"namespaces":["minio-operator"],"principals":["cluster.local/ns/minio-operator/sa/minio-operator"]}}]}],"selector":{"matchLabels":{"app":"minio"}}}}},"custom":[],"enabled":true,"generateFromNetpol":true}` | Authorization Policies Configuration |
+| istio.authorizationPolicies.enabled | bool | `true` | Enable/disable the generation of Istio AuthorizationPolicies |
+| istio.authorizationPolicies.generateFromNetpol | bool | `true` | Generate AuthorizationPolicies from NetworkPolicy configurations |
+| istio.authorizationPolicies.custom | list | `[]` | Custom authorization policies - additional policies added via additionalPolicies |
+| istio.authorizationPolicies.additionalPolicies | object | `{"minio-operator-policy":{"enabled":true,"spec":{"action":"ALLOW","rules":[{"from":[{"source":{"namespaces":["minio-operator"],"principals":["cluster.local/ns/minio-operator/sa/minio-operator"]}}]}],"selector":{"matchLabels":{"app":"minio"}}}}}` | Additional authorization policies (map format) |
+| istio.authorizationPolicies.additionalPolicies.minio-operator-policy | object | `{"enabled":true,"spec":{"action":"ALLOW","rules":[{"from":[{"source":{"namespaces":["minio-operator"],"principals":["cluster.local/ns/minio-operator/sa/minio-operator"]}}]}],"selector":{"matchLabels":{"app":"minio"}}}}` | Allow minio-operator to manage minio tenant |
+| istio.hardened | object | `{"clusterAuditor":{"enabled":false,"namespace":"cluster-auditor"},"customAuthorizationPolicies":[],"customServiceEntries":[],"enabled":false,"kyvernoReporter":{"enabled":false,"namespace":"kyverno-reporter"},"minioOperator":{"enabled":true,"namespaces":["minio-operator"],"principals":["cluster.local/ns/minio-operator/sa/minio-operator"]},"monitoring":{"enabled":true,"namespaces":["monitoring"],"principals":["cluster.local/ns/monitoring/sa/monitoring-grafana","cluster.local/ns/monitoring/sa/monitoring-monitoring-kube-alertmanager","cluster.local/ns/monitoring/sa/monitoring-monitoring-kube-operator","cluster.local/ns/monitoring/sa/monitoring-monitoring-kube-prometheus","cluster.local/ns/monitoring/sa/monitoring-monitoring-kube-state-metrics","cluster.local/ns/monitoring/sa/monitoring-monitoring-prometheus-node-exporter"]},"outboundTrafficPolicyMode":"REGISTRY_ONLY"}` | Legacy configuration for backwards compatibility |
+| routes | object | `{"inbound":{"chat":{"enabled":true,"gateways":["istio-gateway/public-ingressgateway"],"hosts":["chat.{{ .Values.domain }}"],"port":8065,"selector":{"app":"mattermost"},"service":"{{ .Release.Name }}"}}}` | Routes configuration for bb-common |
+| routes.inbound | object | `{"chat":{"enabled":true,"gateways":["istio-gateway/public-ingressgateway"],"hosts":["chat.{{ .Values.domain }}"],"port":8065,"selector":{"app":"mattermost"},"service":"{{ .Release.Name }}"}}` | Inbound routes (creates VirtualService, ServiceEntry, NetworkPolicy, AuthorizationPolicy) |
 | ingress | object | `{"annotations":{},"enabled":false,"host":"","tlsSecret":""}` | Specification to configure an Ingress with Mattermost |
 | monitoring.enabled | bool | `false` |  |
 | monitoring.namespace | string | `"monitoring"` |  |
 | monitoring.serviceMonitor.scheme | string | `"http"` |  |
 | monitoring.serviceMonitor.tlsConfig | object | `{}` |  |
 | networkPolicies.enabled | bool | `false` |  |
-| networkPolicies.ingressLabels.app | string | `"istio-ingressgateway"` |  |
-| networkPolicies.ingressLabels.istio | string | `"ingressgateway"` |  |
-| networkPolicies.controlPlaneCidr | string | `"0.0.0.0/0"` |  |
-| networkPolicies.vpcCidr | string | `"0.0.0.0/0"` |  |
+| networkPolicies.controlPlaneCidr | string | `"0.0.0.0/0"` | CIDR range for control plane (used for kubeAPI egress) |
+| networkPolicies.ingress.to.mattermost:8067 | object | `{"enabled":"{{ .Values.monitoring.enabled }}","from":{"k8s":{"monitoring/prometheus":true}},"podSelector":{"matchLabels":{"app":"mattermost"}}}` | Mattermost metrics ingress from monitoring |
+| networkPolicies.ingress.to.minio:9000 | object | `{"enabled":"{{ .Values.minio.install }}","from":{"k8s":{"minioOperator/*":true}},"podSelector":{"matchLabels":{"app":"minio"}}}` | Minio ingress from minio-operator |
+| networkPolicies.ingress.to.minio-metrics | object | `{"enabled":"{{ and .Values.minio.install .Values.monitoring.enabled .Values.minio.upstream.tenant.metrics.enabled }}","from":{"k8s":{"monitoring/*":true}},"podSelector":{"matchLabels":{"app":"minio","v1.min.io/tenant":"mattermost-minio"}}}` | Minio metrics ingress from monitoring |
+| networkPolicies.egress.from.mattermost | object | `{"podSelector":{"matchLabels":{"app":"mattermost"}},"to":{"cidr":{"0.0.0.0/0":true}}}` | Mattermost app egress to anywhere (for external integrations, updates, etc.) |
+| networkPolicies.egress.from.mattermost-elasticsearch | object | `{"enabled":"{{ .Values.elasticsearch.enabled }}","podSelector":{"matchLabels":{"app":"mattermost"}},"to":{"k8s":{"logging/elasticsearch:9200":{"podSelector":{"matchLabels":{"common.k8s.elastic.co/type":"elasticsearch"}}}}}}` | Mattermost to Elasticsearch |
+| networkPolicies.egress.from.wait-job | object | `{"enabled":"{{ .Values.waitJob.enabled }}","podSelector":{"matchLabels":{"job-name":"mattermost-wait-job"}},"to":{"definition":{"kubeAPI":true}}}` | Wait job egress to kubeAPI |
+| networkPolicies.egress.from.minio-operator | object | `{"enabled":"{{ .Values.minio.install }}","podSelector":{"matchLabels":{"app":"minio"}},"to":{"k8s":{"minioOperator/*:4222":true}}}` | Minio egress to minio-operator |
+| networkPolicies.egress.from.minio | object | `{"enabled":"{{ .Values.minio.install }}","podSelector":{"matchLabels":{"app":"minio"}},"to":{"cidr":{"0.0.0.0/0":true}}}` | Minio egress to anywhere (for external S3-compatible storage) |
+| networkPolicies.egress.from.update-check | object | `{"podSelector":{"matchLabels":{"app":"mattermost-update-check"}},"to":{"cidr":{"0.0.0.0/0":true}}}` | Update check job egress |
+| networkPolicies.egress.from.test | object | `{"enabled":"{{ .Values.bbtests.enabled }}","podSelector":{"matchLabels":{"helm-test":"enabled"}},"to":{"cidr":{"{{ .Values.networkPolicies.controlPlaneCidr }}":true}}}` | Test egress (for cypress tests) |
+| networkPolicies.egress.from.tempo | object | `{"enabled":"{{ eq .Values.istio.injection \"enabled\" }}","to":{"k8s":{"tempo/tempo:9411":true}}}` | Tempo egress (when istio injection is enabled) |
 | networkPolicies.additionalPolicies | list | `[]` |  |
 | sso.enabled | bool | `false` |  |
 | sso.client_id | string | `"platform1_a8604cc9-f5e9-4656-802d-d05624370245_bb8-mattermost"` |  |
@@ -125,6 +124,7 @@ helm install mattermost chart/
 | minio.install | bool | `false` |  |
 | minio.bucketCreationImage | string | `"registry1.dso.mil/ironbank/opensource/minio/mc:RELEASE.2025-08-13T08-35-41Z"` |  |
 | minio.service.nameOverride | string | `"minio.mattermost.svc.cluster.local"` |  |
+| minio.upstream.tenant.name | string | `"mattermost-minio"` |  |
 | minio.upstream.tenant.pools[0].name | string | `"pool-0"` |  |
 | minio.upstream.tenant.pools[0].labels.app | string | `"minio"` |  |
 | minio.upstream.tenant.pools[0].labels."app.kubernetes.io/name" | string | `"minio"` |  |

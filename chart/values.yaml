@@ -3,25 +3,78 @@ domain: bigbang.dev
 istio:
   # -- Toggle istio integration
   enabled: false
+  # -- Istio sidecar injection mode (enabled, disabled, or empty for no label)
+  injection: disabled
+
+  # -- Mutual TLS configuration
+  mtls:
+    # -- STRICT = Allow only mutual TLS traffic,
+    # PERMISSIVE = Allow both plain text and mutual TLS traffic
+    mode: STRICT
+
+  # -- Sidecar configuration for Istio
+  sidecar:
+    # -- Enable/disable Istio Sidecar resource (restricts outbound traffic)
+    enabled: true
+    # -- Outbound traffic policy mode (REGISTRY_ONLY or ALLOW_ANY)
+    outboundTrafficPolicyMode: REGISTRY_ONLY
+
+  # -- Service Entries Configuration
+  serviceEntries:
+    # -- List of custom Istio ServiceEntry resources
+    custom:
+      # -- Mattermost external services (update checks, notices, integrations, analytics)
+      - name: mattermost-external
+        enabled: true
+        spec:
+          hosts:
+            - securityupdatecheck.mattermost.com
+            - customers.mattermost.com
+            - notices.mattermost.com
+            - api.integrations.mattermost.com
+            - pdat.matterlytics.com
+            - api.github.com
+          location: MESH_EXTERNAL
+          exportTo:
+            - "."
+          ports:
+            - number: 443
+              protocol: TLS
+              name: https
+
+  # -- Authorization Policies Configuration
+  authorizationPolicies:
+    # -- Enable/disable the generation of Istio AuthorizationPolicies
+    enabled: true
+    # -- Generate AuthorizationPolicies from NetworkPolicy configurations
+    generateFromNetpol: true
+    # -- Custom authorization policies - additional policies added via additionalPolicies
+    custom: []
+
+    # -- Additional authorization policies (map format)
+    additionalPolicies:
+      # -- Allow minio-operator to manage minio tenant
+      minio-operator-policy:
+        enabled: true
+        spec:
+          selector:
+            matchLabels:
+              app: minio
+          action: ALLOW
+          rules:
+            - from:
+                - source:
+                    namespaces:
+                      - minio-operator
+                    principals:
+                      - cluster.local/ns/minio-operator/sa/minio-operator
+
+  # -- Legacy configuration for backwards compatibility
   hardened:
     enabled: false
     customAuthorizationPolicies: []
-    # - name: "allow-nothing"
-    #   enabled: true
-    #   spec: {}
     outboundTrafficPolicyMode: "REGISTRY_ONLY"
     customServiceEntries: []
-      # - name: "allow-google"
-      #   enabled: true
-      #   spec:
-      #     hosts:
-      #       - google.com
-      #     location: MESH_EXTERNAL
-      #     ports:
-      #       - number: 443
-      #         protocol: TLS
-      #         name: https
-      #     resolution: DNS
     clusterAuditor:
       enabled: false
       namespace: cluster-auditor
@@ -45,21 +98,21 @@ istio:
     kyvernoReporter:
       enabled: false
       namespace: kyverno-reporter
-  # -- Default peer authentication
-  mtls:
-    # -- STRICT = Allow only mutual TLS traffic,
-    # PERMISSIVE = Allow both plain text and mutual TLS traffic
-    mode: STRICT
-  chat:
-    # Toggle vs creation
-    enabled: true
-    annotations: {}
-    labels: {}
-    gateways:
-      - istio-system/main
-    hosts:
-      - chat.{{ .Values.domain }}
-  injection: disabled
+
+# -- Routes configuration for bb-common
+routes:
+  # -- Inbound routes (creates VirtualService, ServiceEntry, NetworkPolicy, AuthorizationPolicy)
+  inbound:
+    chat:
+      enabled: true
+      gateways:
+        - istio-gateway/public-ingressgateway
+      hosts:
+        - chat.{{ .Values.domain }}
+      service: '{{ .Release.Name }}'
+      port: 8065
+      selector:
+        app: mattermost
 
 # -- Specification to configure an Ingress with Mattermost
 ingress:
@@ -79,11 +132,113 @@ monitoring:
 
 networkPolicies:
   enabled: false
-  ingressLabels:
-    app: istio-ingressgateway
-    istio: ingressgateway
+  # -- CIDR range for control plane (used for kubeAPI egress)
   controlPlaneCidr: 0.0.0.0/0
-  vpcCidr: 0.0.0.0/0
+
+  ingress:
+    to:
+      # -- Mattermost metrics ingress from monitoring
+      mattermost:8067:
+        enabled: '{{ .Values.monitoring.enabled }}'
+        podSelector:
+          matchLabels:
+            app: mattermost
+        from:
+          k8s:
+            monitoring/prometheus: true
+      # -- Minio ingress from minio-operator
+      minio:9000:
+        enabled: '{{ .Values.minio.install }}'
+        podSelector:
+          matchLabels:
+            app: minio
+        from:
+          k8s:
+            minioOperator/*: true
+      # -- Minio metrics ingress from monitoring
+      minio-metrics:
+        enabled: '{{ and .Values.minio.install .Values.monitoring.enabled .Values.minio.upstream.tenant.metrics.enabled }}'
+        podSelector:
+          matchLabels:
+            app: minio
+            v1.min.io/tenant: mattermost-minio
+        from:
+          k8s:
+            monitoring/*: true
+
+  egress:
+    from:
+      # -- Mattermost app egress to anywhere (for external integrations, updates, etc.)
+      mattermost:
+        podSelector:
+          matchLabels:
+            app: mattermost
+        to:
+          cidr:
+            0.0.0.0/0: true
+      # -- Mattermost to Elasticsearch
+      mattermost-elasticsearch:
+        enabled: '{{ .Values.elasticsearch.enabled }}'
+        podSelector:
+          matchLabels:
+            app: mattermost
+        to:
+          k8s:
+            logging/elasticsearch:9200:
+              podSelector:
+                matchLabels:
+                  common.k8s.elastic.co/type: elasticsearch
+      # -- Wait job egress to kubeAPI
+      wait-job:
+        enabled: '{{ .Values.waitJob.enabled }}'
+        podSelector:
+          matchLabels:
+            job-name: mattermost-wait-job
+        to:
+          definition:
+            kubeAPI: true
+      # -- Minio egress to minio-operator
+      minio-operator:
+        enabled: '{{ .Values.minio.install }}'
+        podSelector:
+          matchLabels:
+            app: minio
+        to:
+          k8s:
+            minioOperator/*:4222: true
+      # -- Minio egress to anywhere (for external S3-compatible storage)
+      minio:
+        enabled: '{{ .Values.minio.install }}'
+        podSelector:
+          matchLabels:
+            app: minio
+        to:
+          cidr:
+            0.0.0.0/0: true
+      # -- Update check job egress
+      update-check:
+        podSelector:
+          matchLabels:
+            app: mattermost-update-check
+        to:
+          cidr:
+            0.0.0.0/0: true
+      # -- Test egress (for cypress tests)
+      test:
+        enabled: '{{ .Values.bbtests.enabled }}'
+        podSelector:
+          matchLabels:
+            helm-test: enabled
+        to:
+          cidr:
+            "{{ .Values.networkPolicies.controlPlaneCidr }}": true
+      # -- Tempo egress (when istio injection is enabled)
+      tempo:
+        enabled: '{{ eq .Values.istio.injection "enabled" }}'
+        to:
+          k8s:
+            tempo/tempo:9411: true
+
   additionalPolicies: []
 
 sso:
