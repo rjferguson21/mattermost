@@ -139,16 +139,11 @@ networkPolicies:
     to:
       # -- Mattermost metrics ingress from monitoring
       mattermost:8067:
-        enabled: '{{ .Values.monitoring.enabled }}'
-        podSelector:
-          matchLabels:
-            app: mattermost
         from:
           k8s:
             monitoring/prometheus: true
       # -- Minio ingress from minio-operator
       minio:9000:
-        enabled: '{{ .Values.minio.install }}'
         podSelector:
           matchLabels:
             app: minio
@@ -157,32 +152,29 @@ networkPolicies:
             minio-operator/*: true
       # -- Minio metrics ingress from monitoring
       minio-metrics:
-        enabled: '{{ and .Values.minio.install .Values.monitoring.enabled .Values.minio.upstream.tenant.metrics.enabled }}'
         podSelector:
           matchLabels:
             app: minio
             v1.min.io/tenant: mattermost-minio
         from:
           k8s:
-            monitoring/*: true
+            monitoring/prometheus: true
 
   egress:
+    definitions:
+      # -- Storage subnets for S3-compatible storage (override in Big Bang)
+      storage-subnets:
+        to:
+          - ipBlock:
+              cidr: 0.0.0.0/0
+              except:
+                - 169.254.169.254/32
     from:
-      # -- Mattermost app egress to anywhere (for external integrations, updates, etc.)
+      # -- Mattermost app egress (external integrations, updates, elasticsearch, etc.)
       mattermost:
-        podSelector:
-          matchLabels:
-            app: mattermost
         to:
           cidr:
             0.0.0.0/0: true
-      # -- Mattermost to Elasticsearch
-      mattermost-elasticsearch:
-        enabled: '{{ .Values.elasticsearch.enabled }}'
-        podSelector:
-          matchLabels:
-            app: mattermost
-        to:
           k8s:
             logging/elasticsearch:9200:
               podSelector:
@@ -190,31 +182,20 @@ networkPolicies:
                   common.k8s.elastic.co/type: elasticsearch
       # -- Wait job egress to kubeAPI
       wait-job:
-        enabled: '{{ .Values.waitJob.enabled }}'
         podSelector:
           matchLabels:
             job-name: mattermost-wait-job
         to:
           definition:
             kubeAPI: true
-      # -- Minio egress to minio-operator
-      minio-operator:
-        enabled: '{{ .Values.minio.install }}'
-        podSelector:
-          matchLabels:
-            app: minio
+      # -- Minio egress to minio-operator and storage
+      minio:
         to:
           k8s:
-            minio-operator/*:4222: true
-      # -- Minio egress to anywhere (for external S3-compatible storage)
-      minio:
-        enabled: '{{ .Values.minio.install }}'
-        podSelector:
-          matchLabels:
-            app: minio
-        to:
-          cidr:
-            0.0.0.0/0: true
+            minio-operator/minio-operator:4222: true
+          # -- Minio egress to storage subnets (for external S3-compatible storage)
+          definition:
+            storage-subnets: true
       # -- Update check job egress
       update-check:
         podSelector:
@@ -223,18 +204,8 @@ networkPolicies:
         to:
           cidr:
             0.0.0.0/0: true
-      # -- Test egress (for cypress tests)
-      test:
-        enabled: '{{ .Values.bbtests.enabled }}'
-        podSelector:
-          matchLabels:
-            helm-test: enabled
-        to:
-          cidr:
-            "{{ .Values.networkPolicies.controlPlaneCidr }}": true
       # -- Tempo egress (when istio injection is enabled)
       tempo:
-        enabled: '{{ eq .Values.istio.injection "enabled" }}'
         to:
           k8s:
             tempo/tempo:9411: true
