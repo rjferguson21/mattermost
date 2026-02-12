@@ -36,36 +36,6 @@ istio:
     # -- Additional authorization policies (map format)
     additionalPolicies: {}
 
-  # -- Legacy configuration for backwards compatibility
-  hardened:
-    enabled: false
-    customAuthorizationPolicies: []
-    outboundTrafficPolicyMode: "REGISTRY_ONLY"
-    customServiceEntries: []
-    clusterAuditor:
-      enabled: false
-      namespace: cluster-auditor
-    minioOperator:
-      enabled: true
-      namespaces:
-        - minio-operator
-      principals:
-        - cluster.local/ns/minio-operator/sa/minio-operator
-    monitoring:
-      enabled: true
-      namespaces:
-        - monitoring
-      principals:
-        - cluster.local/ns/monitoring/sa/monitoring-grafana
-        - cluster.local/ns/monitoring/sa/monitoring-monitoring-kube-alertmanager
-        - cluster.local/ns/monitoring/sa/monitoring-monitoring-kube-operator
-        - cluster.local/ns/monitoring/sa/monitoring-monitoring-kube-prometheus
-        - cluster.local/ns/monitoring/sa/monitoring-monitoring-kube-state-metrics
-        - cluster.local/ns/monitoring/sa/monitoring-monitoring-prometheus-node-exporter
-    kyvernoReporter:
-      enabled: false
-      namespace: kyverno-reporter
-
 # -- Routes configuration for bb-common
 routes:
   # -- Inbound routes (creates VirtualService, ServiceEntry, NetworkPolicy, AuthorizationPolicy)
