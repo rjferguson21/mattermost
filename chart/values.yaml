@@ -215,7 +215,7 @@ networkPolicies:
       tempo:
         to:
           k8s:
-            tempo/tempo:9411: true
+            tempo-tempo@tempo/tempo:9411: true
 
   additionalPolicies: []
 
