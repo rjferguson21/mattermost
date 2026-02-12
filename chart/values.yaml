@@ -34,22 +34,7 @@ istio:
     custom: []
 
     # -- Additional authorization policies (map format)
-    additionalPolicies:
-      # -- Allow minio-operator to manage minio tenant
-      minio-operator-policy:
-        enabled: true
-        spec:
-          selector:
-            matchLabels:
-              app: minio
-          action: ALLOW
-          rules:
-            - from:
-                - source:
-                    namespaces:
-                      - minio-operator
-                    principals:
-                      - cluster.local/ns/minio-operator/sa/minio-operator
+    additionalPolicies: {}
 
   # -- Legacy configuration for backwards compatibility
   hardened:
