@@ -154,7 +154,7 @@ networkPolicies:
             app: minio
         from:
           k8s:
-            minioOperator/*: true
+            minio-operator/*: true
       # -- Minio metrics ingress from monitoring
       minio-metrics:
         enabled: '{{ and .Values.minio.install .Values.monitoring.enabled .Values.minio.upstream.tenant.metrics.enabled }}'
@@ -205,7 +205,7 @@ networkPolicies:
             app: minio
         to:
           k8s:
-            minioOperator/*:4222: true
+            minio-operator/*:4222: true
       # -- Minio egress to anywhere (for external S3-compatible storage)
       minio:
         enabled: '{{ .Values.minio.install }}'
