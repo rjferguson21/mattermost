@@ -22,25 +22,7 @@ istio:
   # -- Service Entries Configuration
   serviceEntries:
     # -- List of custom Istio ServiceEntry resources
-    custom:
-      # -- Mattermost external services (update checks, notices, integrations, analytics)
-      - name: mattermost-external
-        enabled: true
-        spec:
-          hosts:
-            - securityupdatecheck.mattermost.com
-            - customers.mattermost.com
-            - notices.mattermost.com
-            - api.integrations.mattermost.com
-            - pdat.matterlytics.com
-            - api.github.com
-          location: MESH_EXTERNAL
-          exportTo:
-            - "."
-          ports:
-            - number: 443
-              protocol: TLS
-              name: https
+    custom: []
 
   # -- Authorization Policies Configuration
   authorizationPolicies:
@@ -115,6 +97,20 @@ routes:
         app: mattermost
   # -- Outbound routes (creates ServiceEntry for egress traffic)
   outbound:
+    # -- Mattermost external services (update checks, notices, integrations, analytics)
+    mattermost-external:
+      enabled: true
+      hosts:
+        - securityupdatecheck.mattermost.com
+        - customers.mattermost.com
+        - notices.mattermost.com
+        - api.integrations.mattermost.com
+        - pdat.matterlytics.com
+        - api.github.com
+      ports:
+        - number: 443
+          name: https
+          protocol: TLS
     # -- SSO provider service entry (enables SSO authentication in REGISTRY_ONLY mode)
     sso:
       enabled: false

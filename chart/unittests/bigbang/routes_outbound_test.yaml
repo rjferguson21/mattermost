@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/helm-unittest/helm-unittest/main/schema/helm-testsuite.json
-suite: Routes - Outbound SSO ServiceEntry
+suite: Routes - Outbound ServiceEntries
 templates:
   - templates/bigbang/routes.yaml
 release:
@@ -9,6 +9,84 @@ capabilities:
   apiVersions:
     - networking.istio.io/v1
 tests:
+  # Mattermost External Tests
+  - it: should create mattermost-external ServiceEntry when enabled
+    set:
+      routes:
+        outbound:
+          mattermost-external:
+            enabled: true
+    asserts:
+      - containsDocument:
+          kind: ServiceEntry
+          apiVersion: networking.istio.io/v1
+          name: mattermost-external-external
+          any: true
+
+  - it: should have correct hosts for mattermost-external
+    set:
+      routes:
+        outbound:
+          mattermost-external:
+            enabled: true
+    documentSelector:
+      path: metadata.name
+      value: mattermost-external-external
+    asserts:
+      - contains:
+          path: spec.hosts
+          content: securityupdatecheck.mattermost.com
+      - contains:
+          path: spec.hosts
+          content: customers.mattermost.com
+      - contains:
+          path: spec.hosts
+          content: notices.mattermost.com
+      - contains:
+          path: spec.hosts
+          content: api.integrations.mattermost.com
+      - contains:
+          path: spec.hosts
+          content: pdat.matterlytics.com
+      - contains:
+          path: spec.hosts
+          content: api.github.com
+
+  - it: should have correct port configuration for mattermost-external
+    set:
+      routes:
+        outbound:
+          mattermost-external:
+            enabled: true
+    documentSelector:
+      path: metadata.name
+      value: mattermost-external-external
+    asserts:
+      - equal:
+          path: spec.ports[0].number
+          value: 443
+      - equal:
+          path: spec.ports[0].name
+          value: https
+      - equal:
+          path: spec.ports[0].protocol
+          value: TLS
+
+  - it: should not create mattermost-external ServiceEntry when disabled
+    set:
+      routes:
+        outbound:
+          mattermost-external:
+            enabled: false
+    asserts:
+      - not: true
+        containsDocument:
+          kind: ServiceEntry
+          apiVersion: networking.istio.io/v1
+          name: mattermost-external-external
+          any: true
+
+  # SSO Tests
   - it: should create SSO ServiceEntry when enabled
     set:
       routes:
@@ -40,7 +118,7 @@ tests:
           path: spec.hosts[0]
           value: login.dso.mil
 
-  - it: should have correct port configuration for TLS
+  - it: should have correct port configuration for SSO
     set:
       routes:
         outbound:
@@ -62,7 +140,7 @@ tests:
           path: spec.ports[0].protocol
           value: TLS
 
-  - it: should have MESH_EXTERNAL location
+  - it: should have MESH_EXTERNAL location for SSO
     set:
       routes:
         outbound:
