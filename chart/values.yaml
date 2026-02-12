@@ -113,6 +113,17 @@ routes:
       port: 8065
       selector:
         app: mattermost
+  # -- Outbound routes (creates ServiceEntry for egress traffic)
+  outbound:
+    # -- SSO provider service entry (enables SSO authentication in REGISTRY_ONLY mode)
+    sso:
+      enabled: false
+      hosts:
+        - '{{ include "sso.host" . }}'
+      ports:
+        - number: 443
+          name: https
+          protocol: TLS
 
 # -- Specification to configure an Ingress with Mattermost
 ingress:
